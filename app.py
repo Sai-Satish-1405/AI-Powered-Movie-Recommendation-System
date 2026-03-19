@@ -68,7 +68,7 @@ def get_movie_details(movie_name, release_year=None):
         'actors': actors,
         'release_date': getattr(movie_full, 'release_date', None),
         'runtime': getattr(movie_full, 'runtime', None),
-        'rating': getattr(movie_full, 'vote_average', None)
+        'rating': getattr(movie_full, 'vote_average', None),
         'language': getattr(movie_full, 'original_language', None)  # original_language
     }
 
