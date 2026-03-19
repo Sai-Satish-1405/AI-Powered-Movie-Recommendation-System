@@ -2,15 +2,13 @@ import streamlit as st
 from tmdbv3api import TMDb, Movie, Discover, Person
 from sentence_transformers import SentenceTransformer, util
 import torch
+import os
 
 # ----------------------
 # Initialize TMDb
 # ----------------------
 tmdb = TMDb()
-
-import os
-tmdb.api_key = os.environ["TMDB_API_KEY"]
-
+tmdb.api_key = os.environ["TMDB_API_KEY"]  # Read from Streamlit Secrets
 tmdb.language = 'en'
 movie_api = Movie()
 discover = Discover()
@@ -35,7 +33,6 @@ def get_movie_details(movie_name, release_year=None):
     if not search_results:
         return None
 
-    # Try exact match
     movie = None
     for m in search_results:
         title_match = m.title.lower() == movie_name.lower()
@@ -75,14 +72,9 @@ def get_movie_details(movie_name, release_year=None):
 
 def get_related_movies(movie_details, max_results=20):
     related = {'genre': [], 'director': [], 'actors': []}
+    genre_mapping = {'Action':28, 'Adventure':12, 'Drama':18, 'Fantasy':14, 'Animation':16, 'Comedy':35}
 
-    # Genre mapping example
-    genre_mapping = {
-        'Action': 28, 'Adventure': 12, 'Drama': 18,
-        'Fantasy': 14, 'Animation': 16, 'Comedy': 35
-    }
-
-    # By Genre
+    # Genre
     genre_ids = [genre_mapping[g] for g in movie_details['genres'] if g in genre_mapping]
     if genre_ids:
         movies_by_genre = discover.discover_movies({
@@ -92,7 +84,7 @@ def get_related_movies(movie_details, max_results=20):
         for m in list(movies_by_genre)[:max_results]:
             related['genre'].append({'title': m.title, 'overview': getattr(m, 'overview','')})
 
-    # By Director
+    # Director
     if movie_details['director']:
         director_id = get_person_id(movie_details['director'])
         if director_id:
@@ -104,7 +96,7 @@ def get_related_movies(movie_details, max_results=20):
                 if m.title != movie_details['title']:
                     related['director'].append({'title': m.title, 'overview': getattr(m,'overview','')})
 
-    # By Actor
+    # Actors
     for actor_name in movie_details['actors']:
         actor_id = get_person_id(actor_name)
         if actor_id:
@@ -127,7 +119,6 @@ def recommend_by_ai_plot(movie_details, related_movies, top_n=6):
 
     titles = list(pool.keys())
     plots = list(pool.values())
-
     embeddings = model.encode(plots, convert_to_tensor=True)
     query_idx = titles.index(movie_details['title'])
     cos_scores = util.cos_sim(embeddings[query_idx], embeddings)[0]
@@ -144,35 +135,34 @@ def recommend_by_ai_plot(movie_details, related_movies, top_n=6):
 # ----------------------
 # Streamlit UI
 # ----------------------
-st.title("AI-Powered Movie Recommendations")
+st.title("🎬 AI-Powered Movie Recommendations")
 
 movie_input = st.text_input("Enter your favorite movie:")
 year_input = st.text_input("Optional: Release Year (e.g., 2024)")
 
-if st.button("Fetch Recommendations"):
-    if movie_input:
-        movie_details = get_movie_details(movie_input, release_year=year_input if year_input else None)
-        if not movie_details:
-            st.error("Movie not found!")
-        else:
-            st.subheader(f"Selected Movie: {movie_details['title']}")
-            st.write(movie_details['overview'])
+if st.button("Fetch Recommendations") and movie_input:
+    movie_details = get_movie_details(movie_input, release_year=year_input if year_input else None)
+    if not movie_details:
+        st.error("Movie not found!")
+    else:
+        st.subheader(f"Selected Movie: {movie_details['title']}")
+        st.write(movie_details['overview'])
 
-            related_movies = get_related_movies(movie_details, max_results=6)
+        related_movies = get_related_movies(movie_details, max_results=6)
 
-            st.subheader("Genre-based Recommendations")
-            for m in related_movies['genre']:
-                st.write(f"**{m['title']}**: {m['overview']}")
+        st.subheader("🎭 Genre-based Recommendations")
+        for m in related_movies['genre']:
+            st.write(f"**{m['title']}**: {m['overview']}")
 
-            st.subheader("Director-based Recommendations")
-            for m in related_movies['director']:
-                st.write(f"**{m['title']}**: {m['overview']}")
+        st.subheader("🎬 Director-based Recommendations")
+        for m in related_movies['director']:
+            st.write(f"**{m['title']}**: {m['overview']}")
 
-            st.subheader("Actor-based Recommendations")
-            for m in related_movies['actors']:
-                st.write(f"**{m['title']}**: {m['overview']}")
+        st.subheader("⭐ Actor-based Recommendations")
+        for m in related_movies['actors']:
+            st.write(f"**{m['title']}**: {m['overview']}")
 
-            st.subheader("AI Plot Similarity Recommendations")
-            ai_recs = recommend_by_ai_plot(movie_details, related_movies, top_n=6)
-            for m in ai_recs:
-                st.write(f"**{m['title']}**: {m['overview']}")
+        st.subheader("🤖 AI Plot Similarity Recommendations")
+        ai_recs = recommend_by_ai_plot(movie_details, related_movies, top_n=6)
+        for m in ai_recs:
+            st.write(f"**{m['title']}**: {m['overview']}")
