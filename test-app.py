@@ -20,7 +20,7 @@ movie_api = Movie()
 discover = Discover()
 person_api = Person()
 
-BASE_IMG_URL = "https://image.tmdb.org/t/p/w200"  # Poster base URL
+BASE_IMG_URL = "https://image.tmdb.org/t/p/w200"
 
 # ----------------------
 # Load AI Model
@@ -256,7 +256,8 @@ if st.button("Fetch Recommendations") and movie_input:
             st.error("Movie not found")
         else:
             st.subheader(f"{movie_details['title']}")
-            st.image(BASE_IMG_URL + movie_details['poster_path']) if movie_details.get('poster_path') else None
+            if movie_details.get('poster_path'):
+                st.image(BASE_IMG_URL + movie_details['poster_path'])
             st.write(movie_details['overview'])
             st.caption(f"Language: {movie_details['language']}")
 
