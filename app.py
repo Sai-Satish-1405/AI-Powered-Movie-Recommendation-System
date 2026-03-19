@@ -100,33 +100,33 @@ def get_related_movies(movie_details, max_results=20):
                     related['director'].append({'title': m.title, 'overview': getattr(m,'overview','')})
 
 # Actors (Balanced Recommendations)
-seen_movies = set()
+    seen_movies = set()
 
-for actor_name in movie_details['actors'][:3]:  # Top 3 actors
-    actor_id = get_person_id(actor_name)
+    for actor_name in movie_details['actors'][:3]:  # Top 3 actors
+        actor_id = get_person_id(actor_name)
     
-    if actor_id:
-        movies_by_actor = discover.discover_movies({
-            'with_cast': str(actor_id),
-            'sort_by': 'popularity.desc'
-        })
+        if actor_id:
+            movies_by_actor = discover.discover_movies({
+                'with_cast': str(actor_id),
+                'sort_by': 'popularity.desc'
+            })
         
         count = 0  # limit per actor
         
-        for m in list(movies_by_actor):
-            if m.title != movie_details['title'] and m.title not in seen_movies:
+            for m in list(movies_by_actor):
+                if m.title != movie_details['title'] and m.title not in seen_movies:
                 
-                related['actors'].append({
-                    'title': m.title,
-                    'overview': getattr(m, 'overview', ''),
-                    'actor': actor_name
-                })
+                    related['actors'].append({
+                        'title': m.title,
+                        'overview': getattr(m, 'overview', ''),
+                        'actor': actor_name
+                    })
                 
-                seen_movies.add(m.title)
-                count += 1
+                    seen_movies.add(m.title)
+                    count += 1
             
-            if count == 3:  # ✅ max 3 movies per actor
-                break
+                if count == 3:  # ✅ max 3 movies per actor
+                    break
                 
 # ----------------------
 # Streamlit UI
