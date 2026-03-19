@@ -159,19 +159,20 @@ if st.button("Fetch Recommendations") and movie_input:
         for m in related_movies['actors']:
             st.write(f"**{m['title']}**: {m['overview']}")
 #---------------------------------------------------------
-        shown = set()
-        count = 0
 
-        for m in related['actors']:
-            if m['title'] not in shown:
-                shown.add(m['title'])
-                st.write(f"**{m['title']}**")
-                st.caption(f"Why: Actor → {m['actor']}")
-                st.write(m['overview'])
-                count += 1
+shown = set()
+count = 0
+
+for m in related['actors']:
+    if m['title'] not in shown:
+        shown.add(m['title'])
+        st.write(f"**{m['title']}**")
+        st.caption(f"Why: Actor → {m['actor']}")
+        st.write(m['overview'])
+        count += 1
     
-        if count == 6:
-            break 
+    if count == 6:
+        break
 # ------------------------------------------------------- 
 
         st.subheader("🤖 AI Plot Similarity Recommendations")
