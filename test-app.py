@@ -76,7 +76,8 @@ def get_movie_details(movie_name, release_year=None):
             for c in list(getattr(credits, 'cast', []))[:5]
         ]
 
-        genres = [g.name for g in getattr(movie_full, 'genres', [])]
+        # Genres with IDs
+        genres = [{"id": g.id, "name": g.name} for g in getattr(movie_full, 'genres', [])]
 
         return {
             'title': movie_full.title,
@@ -101,29 +102,25 @@ def get_related_movies(movie_details):
     # Genre-based Recommendations
     # ----------------------
     try:
-        movie_genres = movie_details.get('genres', [])
-        if movie_genres:
-            all_genres = tmdb.genre_movies_list()  # fetch all TMDb genres dynamically
-            genre_map = {g.name.lower(): g.id for g in all_genres}
-            genre_ids = [genre_map.get(g.lower()) for g in movie_genres if genre_map.get(g.lower())]
+        genre_ids = [g['id'] for g in movie_details.get('genres', [])]
 
-            if genre_ids:
-                results = discover.discover_movies({
-                    'with_genres': ','.join(map(str, genre_ids)),
-                    'with_original_language': movie_details['language'],
-                    'sort_by': 'popularity.desc'
-                })
+        if genre_ids:
+            results = discover.discover_movies({
+                'with_genres': ','.join(map(str, genre_ids)),
+                'with_original_language': movie_details['language'],
+                'sort_by': 'popularity.desc'
+            })
 
-                count = 0
-                for m in results:
-                    if m.title != movie_details['title']:
-                        related['genre'].append({
-                            'title': m.title,
-                            'overview': getattr(m, 'overview', '')
-                        })
-                        count += 1
-                    if count == 6:
-                        break
+            count = 0
+            for m in results:
+                if m.title != movie_details['title']:
+                    related['genre'].append({
+                        'title': m.title,
+                        'overview': getattr(m, 'overview', '')
+                    })
+                    count += 1
+                if count == 6:
+                    break
     except:
         pass
 
@@ -191,7 +188,7 @@ def recommend_by_ai_plot(movie_details, related_movies):
     pool = {}
     for category in related_movies:
         for m in related_movies[category]:
-            if m['overview']:  # skip empty plots
+            if m['overview']:
                 pool[m['title']] = m['overview']
     if movie_details['overview']:
         pool[movie_details['title']] = movie_details['overview']
@@ -239,28 +236,28 @@ if st.button("Fetch Recommendations") and movie_input:
 
             related = get_related_movies(movie_details)
 
-            # Genre
+            # Genre-based
             st.subheader("Genre-based Recommendations")
             for m in related['genre']:
                 st.write(f"**{m['title']}**")
                 st.caption("Why: Similar Genre")
                 st.write(m['overview'])
 
-            # Director
+            # Director-based
             st.subheader("Director-based Recommendations")
             for m in related['director']:
                 st.write(f"**{m['title']}**")
                 st.caption(f"Why: Same Director ({movie_details['director']['name'] if movie_details['director'] else 'Unknown'})")
                 st.write(m['overview'])
 
-            # Actors
+            # Actor-based
             st.subheader("Actor-based Recommendations")
             for m in related['actors'][:6]:
                 st.write(f"**{m['title']}**")
                 st.caption(f"Why: Actor → {m['actor']}")
                 st.write(m['overview'])
 
-            # AI
+            # AI-based
             st.subheader("AI Similarity Recommendations")
             ai_recs = recommend_by_ai_plot(movie_details, related)
             for m in ai_recs:
