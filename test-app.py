@@ -20,6 +20,8 @@ movie_api = Movie()
 discover = Discover()
 person_api = Person()
 
+BASE_IMG_URL = "https://image.tmdb.org/t/p/w200"  # Poster base URL
+
 # ----------------------
 # Load AI Model
 # ----------------------
@@ -35,6 +37,23 @@ model = load_model()
 def clean_text(text):
     return text.strip().lower() if text else ""
 
+def render_movie_cards(movies):
+    """Render movies in horizontal cards with posters and overview"""
+    if not movies:
+        st.write("No recommendations available.")
+        return
+
+    for i in range(0, len(movies), 3):
+        cols = st.columns(3)
+        for j, movie in enumerate(movies[i:i+3]):
+            with cols[j]:
+                if 'poster_path' in movie and movie['poster_path']:
+                    st.image(BASE_IMG_URL + movie['poster_path'])
+                st.markdown(f"**{movie['title']}**")
+                if 'reason' in movie:
+                    st.caption(movie['reason'])
+                st.write(movie['overview'][:200] + ("..." if len(movie['overview']) > 200 else ""))
+
 # ----------------------
 # Movie Details
 # ----------------------
@@ -46,7 +65,6 @@ def get_movie_details(movie_name, release_year=None):
         if not results:
             return None
 
-        # Better matching
         movie = None
         for m in results:
             if clean_text(m.title) == movie_name_clean:
@@ -63,20 +81,17 @@ def get_movie_details(movie_name, release_year=None):
         movie_full = movie_api.details(movie.id)
         credits = movie_api.credits(movie.id)
 
-        # Director with ID
         director = None
         for c in getattr(credits, 'crew', []):
             if c.job == 'Director':
                 director = {"name": c.name, "id": c.id}
                 break
 
-        # Actors with IDs
         actors = [
             {"name": c.name, "id": c.id}
             for c in list(getattr(credits, 'cast', []))[:5]
         ]
 
-        # Genres with IDs
         genres = [{"id": g.id, "name": g.name} for g in getattr(movie_full, 'genres', [])]
 
         return {
@@ -85,7 +100,8 @@ def get_movie_details(movie_name, release_year=None):
             'genres': genres,
             'director': director,
             'actors': actors,
-            'language': getattr(movie_full, 'original_language', None)
+            'language': getattr(movie_full, 'original_language', None),
+            'poster_path': getattr(movie_full, 'poster_path', None)
         }
 
     except Exception:
@@ -98,12 +114,9 @@ def get_movie_details(movie_name, release_year=None):
 def get_related_movies(movie_details):
     related = {'genre': [], 'director': [], 'actors': []}
 
-    # ----------------------
-    # Genre-based Recommendations
-    # ----------------------
+    # Genre
     try:
         genre_ids = [g['id'] for g in movie_details.get('genres', [])]
-
         if genre_ids:
             results = discover.discover_movies({
                 'with_genres': ','.join(map(str, genre_ids)),
@@ -116,7 +129,9 @@ def get_related_movies(movie_details):
                 if m.title != movie_details['title']:
                     related['genre'].append({
                         'title': m.title,
-                        'overview': getattr(m, 'overview', '')
+                        'overview': getattr(m, 'overview', ''),
+                        'poster_path': getattr(m, 'poster_path', None),
+                        'reason': 'Similar Genre'
                     })
                     count += 1
                 if count == 6:
@@ -124,9 +139,7 @@ def get_related_movies(movie_details):
     except:
         pass
 
-    # ----------------------
-    # Director-based Recommendations
-    # ----------------------
+    # Director
     try:
         director = movie_details.get('director')
         if director and director.get("id"):
@@ -144,14 +157,14 @@ def get_related_movies(movie_details):
                 if m.title != movie_details['title']:
                     related['director'].append({
                         'title': m.title,
-                        'overview': getattr(m, 'overview', '')
+                        'overview': getattr(m, 'overview', ''),
+                        'poster_path': getattr(m, 'poster_path', None),
+                        'reason': f"Same Director ({director['name']})"
                     })
     except:
         pass
 
-    # ----------------------
-    # Actor-based Recommendations
-    # ----------------------
+    # Actors
     try:
         seen = set()
         for actor in movie_details.get('actors', [])[:3]:
@@ -169,7 +182,8 @@ def get_related_movies(movie_details):
                     related['actors'].append({
                         'title': m.title,
                         'overview': getattr(m, 'overview', ''),
-                        'actor': actor['name']
+                        'poster_path': getattr(m, 'poster_path', None),
+                        'reason': f"Actor → {actor['name']}"
                     })
                     seen.add(m.title)
                     count += 1
@@ -189,15 +203,23 @@ def recommend_by_ai_plot(movie_details, related_movies):
     for category in related_movies:
         for m in related_movies[category]:
             if m['overview']:
-                pool[m['title']] = m['overview']
+                pool[m['title']] = {
+                    'overview': m['overview'],
+                    'poster_path': m.get('poster_path', None),
+                    'reason': f"Similar Storyline (AI)"
+                }
     if movie_details['overview']:
-        pool[movie_details['title']] = movie_details['overview']
+        pool[movie_details['title']] = {
+            'overview': movie_details['overview'],
+            'poster_path': movie_details.get('poster_path', None),
+            'reason': "Original Movie"
+        }
 
     if len(pool) < 2:
         return []
 
     titles = list(pool.keys())
-    plots = list(pool.values())
+    plots = [pool[t]['overview'] for t in titles]
     embeddings = model.encode(plots, convert_to_tensor=True)
     query_idx = titles.index(movie_details['title'])
     scores = util.cos_sim(embeddings[query_idx], embeddings)[0]
@@ -206,9 +228,12 @@ def recommend_by_ai_plot(movie_details, related_movies):
     recs = []
     for idx in top.indices:
         if titles[idx] != movie_details['title']:
+            t = titles[idx]
             recs.append({
-                'title': titles[idx],
-                'overview': pool[titles[idx]]
+                'title': t,
+                'overview': pool[t]['overview'],
+                'poster_path': pool[t]['poster_path'],
+                'reason': pool[t]['reason']
             })
     return recs
 
@@ -231,36 +256,21 @@ if st.button("Fetch Recommendations") and movie_input:
             st.error("Movie not found")
         else:
             st.subheader(f"{movie_details['title']}")
+            st.image(BASE_IMG_URL + movie_details['poster_path']) if movie_details.get('poster_path') else None
             st.write(movie_details['overview'])
             st.caption(f"Language: {movie_details['language']}")
 
             related = get_related_movies(movie_details)
-
-            # Genre-based
-            st.subheader("Genre-based Recommendations")
-            for m in related['genre']:
-                st.write(f"**{m['title']}**")
-                st.caption("Why: Similar Genre")
-                st.write(m['overview'])
-
-            # Director-based
-            st.subheader("Director-based Recommendations")
-            for m in related['director']:
-                st.write(f"**{m['title']}**")
-                st.caption(f"Why: Same Director ({movie_details['director']['name'] if movie_details['director'] else 'Unknown'})")
-                st.write(m['overview'])
-
-            # Actor-based
-            st.subheader("Actor-based Recommendations")
-            for m in related['actors'][:6]:
-                st.write(f"**{m['title']}**")
-                st.caption(f"Why: Actor → {m['actor']}")
-                st.write(m['overview'])
-
-            # AI-based
-            st.subheader("AI Similarity Recommendations")
             ai_recs = recommend_by_ai_plot(movie_details, related)
-            for m in ai_recs:
-                st.write(f"**{m['title']}**")
-                st.caption("Why: Similar Storyline (AI)")
-                st.write(m['overview'])
+
+            st.subheader("Genre-based Recommendations")
+            render_movie_cards(related['genre'])
+
+            st.subheader("Director-based Recommendations")
+            render_movie_cards(related['director'])
+
+            st.subheader("Actor-based Recommendations")
+            render_movie_cards(related['actors'])
+
+            st.subheader("AI Similarity Recommendations")
+            render_movie_cards(ai_recs)
