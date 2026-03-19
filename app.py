@@ -99,46 +99,39 @@ def get_related_movies(movie_details, max_results=20):
                 if m.title != movie_details['title']:
                     related['director'].append({'title': m.title, 'overview': getattr(m,'overview','')})
 
-    # Actors
-    for actor_name in movie_details['actors'][:3]:
-        actor_id = get_person_id(actor_name)
-        if actor_id:
-            movies_by_actor = discover.discover_movies({
-                'with_cast': str(actor_id),
-                'sort_by': 'popularity.desc'
-            })
-            for m in list(movies_by_actor)[:max_results]:
-                if m.title != movie_details['title']:
-                    related['actors'].append({'title': m.title, 'overview': getattr(m,'overview','')})
+# Actors (Balanced Recommendations)
+seen_movies = set()
 
-    return related
-
-def recommend_by_ai_plot(movie_details, related_movies, top_n=6):
-    pool = {}
-    for category in ['genre','director','actors']:
-        for m in related_movies[category]:
-            pool[m['title']] = m['overview']
-    pool[movie_details['title']] = movie_details['overview']
-
-    titles = list(pool.keys())
-    plots = list(pool.values())
-    embeddings = model.encode(plots, convert_to_tensor=True)
-    query_idx = titles.index(movie_details['title'])
-    cos_scores = util.cos_sim(embeddings[query_idx], embeddings)[0]
-
-    top_results = torch.topk(cos_scores, k=min(top_n+1,len(titles)))
-    recommendations = []
-    for idx in top_results.indices:
-        if titles[idx] != movie_details['title']:
-            recommendations.append({'title': titles[idx], 'overview': pool[titles[idx]]})
-        if len(recommendations) >= top_n:
-            break
-    return recommendations
-
+for actor_name in movie_details['actors'][:3]:  # Top 3 actors
+    actor_id = get_person_id(actor_name)
+    
+    if actor_id:
+        movies_by_actor = discover.discover_movies({
+            'with_cast': str(actor_id),
+            'sort_by': 'popularity.desc'
+        })
+        
+        count = 0  # limit per actor
+        
+        for m in list(movies_by_actor):
+            if m.title != movie_details['title'] and m.title not in seen_movies:
+                
+                related['actors'].append({
+                    'title': m.title,
+                    'overview': getattr(m, 'overview', ''),
+                    'actor': actor_name
+                })
+                
+                seen_movies.add(m.title)
+                count += 1
+            
+            if count == 3:  # ✅ max 3 movies per actor
+                break
+                
 # ----------------------
 # Streamlit UI
 # ----------------------
-st.title("🎬 AI-Powered Movie Recommendations")
+st.title("🎬 AI Powered Movie Recommendations")
 
 movie_input = st.text_input("Enter your favorite movie:")
 year_input = st.text_input("Optional: Release Year (e.g., 2024)")
@@ -152,7 +145,7 @@ if st.button("Fetch Recommendations") and movie_input:
         st.write(movie_details['overview'])
         st.caption(f"Language: {movie_details['language']}")
 
-        related_movies = get_related_movies(movie_details, max_results=6)
+        related_movies = get_related_movies(movie_details, max_results=4)
 
         st.subheader("🎭 Genre-based Recommendations")
         for m in related_movies['genre']:
@@ -165,8 +158,23 @@ if st.button("Fetch Recommendations") and movie_input:
         st.subheader("⭐ Actor-based Recommendations")
         for m in related_movies['actors']:
             st.write(f"**{m['title']}**: {m['overview']}")
+#---------------------------------------------------------
+        shown = set()
+        count = 0
+
+        for m in related['actors']:
+            if m['title'] not in shown:
+            shown.add(m['title'])
+            st.write(f"**{m['title']}**")
+            st.caption(f"Why: Actor → {m['actor']}")
+            st.write(m['overview'])
+            count += 1
+    
+        if count == 6:
+        break
+# ------------------------------------------------------- 
 
         st.subheader("🤖 AI Plot Similarity Recommendations")
-        ai_recs = recommend_by_ai_plot(movie_details, related_movies, top_n=6)
+        ai_recs = recommend_by_ai_plot(movie_details, related_movies, top_n=5)
         for m in ai_recs:
             st.write(f"**{m['title']}**: {m['overview']}")
