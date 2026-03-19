@@ -14,6 +14,7 @@ movie_api = Movie()
 discover = Discover()
 person_api = Person()
 
+
 # ----------------------
 # Initialize AI model
 # ----------------------
@@ -68,6 +69,7 @@ def get_movie_details(movie_name, release_year=None):
         'release_date': getattr(movie_full, 'release_date', None),
         'runtime': getattr(movie_full, 'runtime', None),
         'rating': getattr(movie_full, 'vote_average', None)
+        'language': getattr(movie_full, 'original_language', None)  # original_language
     }
 
 def get_related_movies(movie_details, max_results=20):
@@ -79,6 +81,7 @@ def get_related_movies(movie_details, max_results=20):
     if genre_ids:
         movies_by_genre = discover.discover_movies({
             'with_genres': ','.join(map(str, genre_ids)),
+             'with_original_language': movie_details['language'],  #1  language fix
             'sort_by': 'popularity.desc'
         })
         for m in list(movies_by_genre)[:max_results]:
@@ -147,6 +150,7 @@ if st.button("Fetch Recommendations") and movie_input:
     else:
         st.subheader(f"Selected Movie: {movie_details['title']}")
         st.write(movie_details['overview'])
+        st.caption(f"Language: {movie_details['language']}")
 
         related_movies = get_related_movies(movie_details, max_results=6)
 
