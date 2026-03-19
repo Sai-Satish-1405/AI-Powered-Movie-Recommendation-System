@@ -100,7 +100,7 @@ def get_related_movies(movie_details, max_results=20):
                     related['director'].append({'title': m.title, 'overview': getattr(m,'overview','')})
 
     # Actors
-    for actor_name in movie_details['actors']:
+    for actor_name in movie_details['actors'][:3]:
         actor_id = get_person_id(actor_name)
         if actor_id:
             movies_by_actor = discover.discover_movies({
