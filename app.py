@@ -171,7 +171,7 @@ if st.button("Fetch Recommendations") and movie_input:
                 count += 1
     
         if count == 6:
-        break 
+            break 
 # ------------------------------------------------------- 
 
         st.subheader("🤖 AI Plot Similarity Recommendations")
