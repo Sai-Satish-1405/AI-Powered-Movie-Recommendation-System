@@ -7,7 +7,10 @@ import torch
 # Initialize TMDb
 # ----------------------
 tmdb = TMDb()
-tmdb.api_key = "8b02732f86b47743a83d86aedff7be18"  # Replace with your key
+
+import os
+tmdb.api_key = os.environ["TMDB_API_KEY"]
+
 tmdb.language = 'en'
 movie_api = Movie()
 discover = Discover()
