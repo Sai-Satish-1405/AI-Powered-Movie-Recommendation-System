@@ -8,6 +8,11 @@ import os
 # Initialize TMDb
 # ----------------------
 tmdb = TMDb()
+
+if "TMDB_API_KEY" not in os.environ:
+    st.error("TMDB_API_KEY not set")
+    st.stop()
+
 tmdb.api_key = os.environ["TMDB_API_KEY"]
 tmdb.language = 'en'
 
@@ -16,7 +21,7 @@ discover = Discover()
 person_api = Person()
 
 # ----------------------
-# Load AI Model (cached)
+# Load AI Model
 # ----------------------
 @st.cache_resource
 def load_model():
@@ -25,149 +30,179 @@ def load_model():
 model = load_model()
 
 # ----------------------
-# Helper Functions
+# Utils
+# ----------------------
+def clean_text(text):
+    return text.strip().lower() if text else ""
+
+# ----------------------
+# Movie Details
 # ----------------------
 @st.cache_data
-def get_person_id(person_name):
-    res = person_api.search(person_name)
-    return res[0].id if res else None
-
-
-@st.cache_data
 def get_movie_details(movie_name, release_year=None):
-    search_results = movie_api.search(movie_name)
-    if not search_results:
-        return None
+    try:
+        movie_name_clean = clean_text(movie_name)
 
-    movie = None
-    for m in search_results:
-        if m.title.lower() == movie_name.lower():
-            if release_year and m.release_date:
-                if m.release_date.startswith(str(release_year)):
+        results = movie_api.search(movie_name)
+        if not results:
+            return None
+
+        # Better matching
+        movie = None
+        for m in results:
+            if clean_text(m.title) == movie_name_clean:
+                if release_year and getattr(m, 'release_date', None):
+                    if m.release_date.startswith(str(release_year)):
+                        movie = m
+                        break
+                else:
                     movie = m
                     break
-            else:
-                movie = m
+
+        if not movie:
+            movie = results[0]
+
+        movie_full = movie_api.details(movie.id)
+        credits = movie_api.credits(movie.id)
+
+        # Director (WITH ID ✅)
+        director = None
+        for c in getattr(credits, 'crew', []):
+            if c.job == 'Director':
+                director = {"name": c.name, "id": c.id}
                 break
 
-    if movie is None:
-        movie = search_results[0]
+        # Actors (WITH ID ✅)
+        actors = [
+            {"name": c.name, "id": c.id}
+            for c in list(getattr(credits, 'cast', []))[:5]
+        ]
 
-    movie_full = movie_api.details(movie.id)
+        genres = [g.name for g in getattr(movie_full, 'genres', [])]
 
-    genres = [g.name for g in movie_full.genres] if hasattr(movie_full, 'genres') else []
+        return {
+            'title': movie_full.title,
+            'overview': movie_full.overview or "",
+            'genres': genres,
+            'director': director,
+            'actors': actors,
+            'language': getattr(movie_full, 'original_language', None)
+        }
 
-    credits = movie_api.credits(movie.id)
-
-    director = None
-    for c in getattr(credits, 'crew', []):
-        if c.job == 'Director':
-            director = c.name
-            break
-
-    actors = [c.name for c in list(getattr(credits, 'cast', []))[:5]]
-
-    return {
-        'title': movie_full.title,
-        'overview': movie_full.overview,
-        'genres': genres,
-        'director': director,
-        'actors': actors,
-        'language': getattr(movie_full, 'original_language', None)
-    }
+    except Exception:
+        return None
 
 
+# ----------------------
+# Related Movies
+# ----------------------
 @st.cache_data
 def get_related_movies(movie_details):
     related = {'genre': [], 'director': [], 'actors': []}
 
-    genre_mapping = {
-        'Action': 28, 'Adventure': 12, 'Drama': 18,
-        'Fantasy': 14, 'Animation': 16, 'Comedy': 35
-    }
-
     # ----------------------
-    # Genre (same language)
+    # Genre (LESS restrictive)
     # ----------------------
-    genre_ids = [genre_mapping[g] for g in movie_details['genres'] if g in genre_mapping]
-
-    if genre_ids:
-        results = discover.discover_movies({
-            'with_genres': ','.join(map(str, genre_ids)),
-            'with_original_language': movie_details['language'],
-            'sort_by': 'popularity.desc'
-        })
-
-        for m in list(results)[:6]:
-            related['genre'].append({
-                'title': m.title,
-                'overview': getattr(m, 'overview', '')
-            })
-
-    # ----------------------
-    # Director (same language)
-    # ----------------------
-    if movie_details['director']:
-        d_id = get_person_id(movie_details['director'])
-
-        if d_id:
+    try:
+        if movie_details['genres']:
             results = discover.discover_movies({
-                'with_crew': str(d_id),
-                'with_original_language': movie_details['language'],
+                'with_genres': '',
                 'sort_by': 'popularity.desc'
             })
 
-            for m in list(results)[:6]:
+            for m in list(results)[:10]:
+                if m.title != movie_details['title']:
+                    related['genre'].append({
+                        'title': m.title,
+                        'overview': getattr(m, 'overview', '')
+                    })
+    except:
+        pass
+
+    # ----------------------
+    # Director (FIXED ✅)
+    # ----------------------
+    try:
+        director = movie_details['director']
+
+        if director and director.get("id"):
+            credits = person_api.movie_credits(director["id"])
+
+            directed_movies = [
+                m for m in getattr(credits, 'crew', [])
+                if getattr(m, 'job', None) == 'Director'
+            ]
+
+            directed_movies = sorted(
+                directed_movies,
+                key=lambda x: getattr(x, 'popularity', 0),
+                reverse=True
+            )
+
+            for m in directed_movies[:6]:
                 if m.title != movie_details['title']:
                     related['director'].append({
                         'title': m.title,
                         'overview': getattr(m, 'overview', '')
                     })
+    except:
+        pass
 
     # ----------------------
-    # Actors (Balanced + Top 3)
+    # Actors (IMPROVED ✅)
     # ----------------------
-    seen = set()
+    try:
+        seen = set()
 
-    for actor_name in movie_details['actors'][:3]:
-        actor_id = get_person_id(actor_name)
+        for actor in movie_details['actors'][:3]:
+            if not actor.get("id"):
+                continue
 
-        if actor_id:
-            results = discover.discover_movies({
-                'with_cast': str(actor_id),
-                'with_original_language': movie_details['language'],
-                'sort_by': 'popularity.desc'
-            })
+            credits = person_api.movie_credits(actor["id"])
+
+            cast_movies = sorted(
+                getattr(credits, 'cast', []),
+                key=lambda x: getattr(x, 'popularity', 0),
+                reverse=True
+            )
 
             count = 0
 
-            for m in list(results):
+            for m in cast_movies:
                 if m.title != movie_details['title'] and m.title not in seen:
-
                     related['actors'].append({
                         'title': m.title,
                         'overview': getattr(m, 'overview', ''),
-                        'actor': actor_name
+                        'actor': actor['name']
                     })
-
                     seen.add(m.title)
                     count += 1
 
                 if count == 3:
                     break
+    except:
+        pass
 
     return related
 
 
+# ----------------------
+# AI Recommendations
+# ----------------------
 @st.cache_data
 def recommend_by_ai_plot(movie_details, related_movies):
     pool = {}
 
     for category in related_movies:
         for m in related_movies[category]:
-            pool[m['title']] = m['overview']
+            if m['overview']:  # skip empty plots
+                pool[m['title']] = m['overview']
 
-    pool[movie_details['title']] = movie_details['overview']
+    if movie_details['overview']:
+        pool[movie_details['title']] = movie_details['overview']
+
+    if len(pool) < 2:
+        return []
 
     titles = list(pool.keys())
     plots = list(pool.values())
@@ -200,43 +235,48 @@ year_input = st.text_input("Optional: Release Year")
 
 if st.button("Fetch Recommendations") and movie_input:
 
-    movie_details = get_movie_details(movie_input, year_input if year_input else None)
+    with st.spinner("Fetching recommendations..."):
 
-    if not movie_details:
-        st.error("Movie not found")
-    else:
-        st.subheader(f"🎥 {movie_details['title']}")
-        st.write(movie_details['overview'])
-        st.caption(f"Language: {movie_details['language']}")
+        movie_details = get_movie_details(
+            movie_input,
+            year_input if year_input.isdigit() else None
+        )
 
-        related = get_related_movies(movie_details)
+        if not movie_details:
+            st.error("Movie not found")
+        else:
+            st.subheader(f"🎥 {movie_details['title']}")
+            st.write(movie_details['overview'])
+            st.caption(f"Language: {movie_details['language']}")
 
-        # Genre
-        st.subheader("🎭 Genre-based")
-        for m in related['genre']:
-            st.write(f"**{m['title']}**")
-            st.caption("Why: Similar Genre")
-            st.write(m['overview'])
+            related = get_related_movies(movie_details)
 
-        # Director
-        st.subheader("🎬 Director-based")
-        for m in related['director']:
-            st.write(f"**{m['title']}**")
-            st.caption(f"Why: Same Director ({movie_details['director']})")
-            st.write(m['overview'])
+            # Genre
+            st.subheader("🎭 Genre-based")
+            for m in related['genre']:
+                st.write(f"**{m['title']}**")
+                st.caption("Why: Similar Genre")
+                st.write(m['overview'])
 
-        # Actors
-        st.subheader("⭐ Actor-based")
-        for m in related['actors'][:6]:
-            st.write(f"**{m['title']}**")
-            st.caption(f"Why: Actor → {m['actor']}")
-            st.write(m['overview'])
+            # Director
+            st.subheader("🎬 Director-based")
+            for m in related['director']:
+                st.write(f"**{m['title']}**")
+                st.caption(f"Why: Same Director ({movie_details['director']['name'] if movie_details['director'] else 'Unknown'})")
+                st.write(m['overview'])
 
-        # AI
-        st.subheader("🤖 AI Similarity")
-        ai_recs = recommend_by_ai_plot(movie_details, related)
+            # Actors
+            st.subheader("⭐ Actor-based")
+            for m in related['actors'][:6]:
+                st.write(f"**{m['title']}**")
+                st.caption(f"Why: Actor → {m['actor']}")
+                st.write(m['overview'])
 
-        for m in ai_recs:
-            st.write(f"**{m['title']}**")
-            st.caption("Why: Similar Storyline (AI)")
-            st.write(m['overview'])
+            # AI
+            st.subheader("🤖 AI Similarity")
+            ai_recs = recommend_by_ai_plot(movie_details, related)
+
+            for m in ai_recs:
+                st.write(f"**{m['title']}**")
+                st.caption("Why: Similar Storyline (AI)")
+                st.write(m['overview'])
