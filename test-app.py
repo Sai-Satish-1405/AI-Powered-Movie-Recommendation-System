@@ -38,7 +38,7 @@ def clean_text(text):
     return text.strip().lower() if text else ""
 
 def render_movie_cards(movies):
-    """Render movies in horizontal cards with posters and overview"""
+    """Render movies in horizontal cards with posters, overview, and reason"""
     if not movies:
         st.write("No recommendations available.")
         return
@@ -114,10 +114,15 @@ def get_movie_details(movie_name, release_year=None):
 def get_related_movies(movie_details):
     related = {'genre': [], 'director': [], 'actors': []}
 
+    # ----------------------
     # Genre
+    # ----------------------
     try:
-        genre_ids = [g['id'] for g in movie_details.get('genres', [])]
-        if genre_ids:
+        movie_genres = movie_details.get('genres', [])
+        if movie_genres:
+            genre_ids = [g['id'] for g in movie_genres]
+            genre_map = {g['id']: g['name'] for g in movie_genres}
+
             results = discover.discover_movies({
                 'with_genres': ','.join(map(str, genre_ids)),
                 'with_original_language': movie_details['language'],
@@ -127,11 +132,16 @@ def get_related_movies(movie_details):
             count = 0
             for m in results:
                 if m.title != movie_details['title']:
+                    # Identify shared genres
+                    m_genres = getattr(m, 'genre_ids', [])
+                    shared_genres = [genre_map[g] for g in m_genres if g in genre_map]
+                    reason = "Shared Genre: " + ", ".join(shared_genres) if shared_genres else "Similar Genre"
+
                     related['genre'].append({
                         'title': m.title,
                         'overview': getattr(m, 'overview', ''),
                         'poster_path': getattr(m, 'poster_path', None),
-                        'reason': 'Similar Genre'
+                        'reason': reason
                     })
                     count += 1
                 if count == 6:
@@ -139,7 +149,9 @@ def get_related_movies(movie_details):
     except:
         pass
 
+    # ----------------------
     # Director
+    # ----------------------
     try:
         director = movie_details.get('director')
         if director and director.get("id"):
@@ -164,7 +176,9 @@ def get_related_movies(movie_details):
     except:
         pass
 
+    # ----------------------
     # Actors
+    # ----------------------
     try:
         seen = set()
         for actor in movie_details.get('actors', [])[:3]:
