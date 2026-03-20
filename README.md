@@ -10,9 +10,9 @@ An intelligent movie recommendation system that suggests similar movies based on
 ## 🚀 Features
 
 * 🔍 Search any movie using TMDb API
-* 🎭 Genre-based recommendations
+* 🎭 Genre-based recommendations (Genre-based keywords)
 * 🎬 Director-based recommendations
-* ⭐ Actor-based recommendations
+* ⭐ Top Actor-based recommendations
 * 🤖 AI-powered plot similarity using embeddings
 * ⚡ Hybrid recommendation engine (Rule-based + AI scoring)
 * 🧠 Explainable recommendations (Why each movie is suggested)
@@ -100,7 +100,7 @@ pip install -r requirements.txt
 
 ## 🔑 Setup API Key
 
-Create a `.env` file or set environment variable:
+Create a `.env` file or set an environment variable:
 
 ```bash
 TMDB_API_KEY=your_api_key_here
@@ -120,7 +120,7 @@ tmdb.api_key = "your_api_key"
 streamlit run app.py
 ```
 
-Then open:
+Then open: (Local)
 
 ```
 http://localhost:8501
@@ -130,17 +130,23 @@ http://localhost:8501
 
 ## 🌐 Deployment
 
-This app can be deployed easily using:
+This app was deployed easily using:
 
-* **Streamlit Cloud** (Recommended)
-* Docker (optional)
-* AWS / GCP (advanced)
+* **Streamlit Cloud** --Deployed Try here -- 🔥 🔗 https://ai-powered-movie-recommendation-system-by-ssp14-test.streamlit.app/ 
+* Docker (optional)--N/A
+* AWS / GCP (advanced)--N/A
 
 ---
 
-## 📸 Screenshots (Optional)
+## 📸 Screenshots 
 
-*Add screenshots of your app here to make your repo stand out*
+<img width="1919" height="816" alt="image" src="https://github.com/user-attachments/assets/e0702a95-955e-4e77-8c2d-c46fdac3693f" />
+<img width="1919" height="825" alt="image" src="https://github.com/user-attachments/assets/f5b91deb-0a11-4df6-988b-36e5675b282d" />
+<img width="1919" height="816" alt="image" src="https://github.com/user-attachments/assets/dcca81dd-c81c-4022-9082-782adca864b6" />
+<img width="1919" height="815" alt="image" src="https://github.com/user-attachments/assets/2e2368b1-c70a-4d00-8965-f0ab7b29c529" />
+<img width="1919" height="822" alt="image" src="https://github.com/user-attachments/assets/35f03dcd-6349-47d2-ac4b-97f46ac3943c" />
+<img width="1911" height="821" alt="image" src="https://github.com/user-attachments/assets/242bca2a-62ef-4835-9fa4-d2d0916c68e7" />
+<img width="1919" height="824" alt="image" src="https://github.com/user-attachments/assets/2b2d29eb-f475-41a9-bbca-fe727dc21c23" />
 
 ---
 
@@ -149,29 +155,29 @@ This app can be deployed easily using:
 Input:
 
 ```
-Baahubali
+Interstellar
 ```
 
 Output:
 
-* Genre-based: Similar epic/action movies
-* Director-based: Movies by S.S. Rajamouli
-* Actor-based: Movies with Prabhas
-* AI-based: Movies with similar storyline
+* Genre-based: Similar shared genre: Drama, Adventure, Science Fiction
+* Director-based: Movies by the Same Director (Christopher Nolan)
+* Actor-based: Movies with Actor → Matthew McConaughey
+* AI-based: Movies with Similar Storyline (AI)
 
 ---
 
 ## 🎯 Future Improvements
 
-* 🎬 Add movie posters
-* 👤 User-based personalization
-* 📊 Ratings & reviews integration
-* 🔎 Advanced filtering (year, rating, language)
-* ⚡ Faster vector search using FAISS
+* 🎬 Add movie posters - ✔️ 
+* 👤 User-based personalization …. Loading
+* 📊 Ratings & reviews integration …. Loading
+* 🔎 Advanced filtering (year, rating, language) …. Loading
+* ⚡ Faster vector search using FAISS …. Loading
 
 ---
 
-## 🤝 Contributing
+## 🤝 Contributing 🥳
 
 Contributions are welcome! Feel free to open issues or submit pull requests.
 
@@ -186,7 +192,7 @@ This project is open-source and available under the MIT License.
 ## 👨‍💻 Author
 
 Your Name
-GitHub: https://github.com/your-username
+GitHub: https://github.com/Sai-Satish-1405
 
 ---
 
@@ -195,5 +201,5 @@ GitHub: https://github.com/your-username
 Give it a ⭐ on GitHub — it helps a lot!
 
 
-Try here https://ai-powered-movie-recommendation-system-by-ssp14.streamlit.app/
+Try here  🔗 https://ai-powered-movie-recommendation-system-by-ssp14-test.streamlit.app/ 
 
