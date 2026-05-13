@@ -1,5 +1,3 @@
-Modules:
-
 streamlit
 tmdbv3api
 sentence-transformers
