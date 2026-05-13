@@ -240,3 +240,4 @@ if st.button("Fetch Recommendations") and movie_input:
             st.write(f"**{m['title']}**")
             st.caption("Why: Similar Storyline (AI)")
             st.write(m['overview'])
+
