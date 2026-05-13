@@ -6,7 +6,6 @@ AI-Powered Movie Recommendation System
 An intelligent movie recommendation system that suggests similar movies based on **genre, director, actors, and AI-powered plot similarity** using embeddings.
 
 ---
-
 ## 🚀 Features
 
 * 🔍 Search any movie using TMDb API
