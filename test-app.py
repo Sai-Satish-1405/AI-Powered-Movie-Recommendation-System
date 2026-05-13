@@ -3,7 +3,6 @@ from tmdbv3api import TMDb, Movie, Discover, Person
 from sentence_transformers import SentenceTransformer, util
 import torch
 import os
-
 # ----------------------
 # Initialize TMDb
 # ----------------------
